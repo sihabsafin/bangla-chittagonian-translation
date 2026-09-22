@@ -26,18 +26,17 @@
 
 ## 📖 Overview
 
-**Chittagonian** is spoken by tens of millions of people in southeastern Bangladesh, yet it remains a low-resource dialect with almost no dedicated NLP tooling. This project investigates whether **small, instruction-tuned language models** — fine-tuned with **QLoRA** — can learn accurate Bangla → Chittagonian translation from a modest, manually-curated parallel corpus, under realistic, constrained compute (a single Colab T4 GPU).
+**Chittagonian** is a widely spoken regional language variety in southeastern Bangladesh, yet it remains a low-resource dialect with almost no dedicated NLP tooling. This project investigates whether **small, instruction-tuned language models** — fine-tuned with **QLoRA** — can learn accurate Bangla → Chittagonian translation from a curated parallel corpus, under realistic, constrained compute (a single Colab T4 GPU).
 
-The work covers the full pipeline: dataset construction, preprocessing, prompt design, multi-model QLoRA fine-tuning, and rigorous quantitative evaluation.
+The work covers the full pipeline: dataset construction and native-speaker validation, preprocessing, prompt design, multi-model QLoRA fine-tuning, and evaluation using complementary word-level and character-level MT metrics.
 
 ### Research Questions
 
 | # | Question |
 |---|----------|
-| 1 | Can small language models be effectively fine-tuned for Bangla → Chittagonian translation? |
-| 2 | Does QLoRA preserve translation quality while cutting training cost? |
-| 3 | Which base model generalizes best under an identical training regime? |
-| 4 | How well do standard MT metrics (BLEU, chrF++, ROUGE) capture quality in a low-resource dialect setting? |
+| 1 | How effectively can parameter-efficient adaptation specialize instruction-tuned Small Language Models for Bangla-to-Chittagonian translation? |
+| 2 | How do Qwen2.5-3B-Instruct, Gemma-2B-IT, and Llama-3.2-3B-Instruct differ under a unified QLoRA framework? |
+| 3 | How do word-level and character-level metrics (BLEU vs. chrF++) reflect model performance for low-resource Chittagonian translation? |
 
 ---
 
@@ -53,7 +52,7 @@ The work covers the full pipeline: dataset construction, preprocessing, prompt d
 
 ## 🧠 Models
 
-Three instruction-tuned small language models were fine-tuned and evaluated under identical conditions for a fair, controlled comparison:
+Three instruction-tuned small language models were fine-tuned and evaluated under an identical QLoRA protocol for a controlled comparison:
 
 | Model | Parameters | Source |
 |---|---|---|
@@ -65,71 +64,88 @@ Three instruction-tuned small language models were fine-tuned and evaluated unde
 
 ## 📊 Dataset
 
-A Bangla–Chittagonian parallel corpus was built specifically for this thesis, as no adequate public dataset existed.
+A curated **English–Bangla–Chittagonian** parallel corpus was built specifically for this thesis from publicly available online linguistic resources, then refined using native-speaker input — no adequate public dataset existed for this exact setting.
 
 | Property | Value |
 |---|---|
-| Sentence pairs | **7,665** |
-| Language pair | Bangla → Chittagonian |
-| Sources | Facebook groups, native speakers, online forums, social media, community contributions |
-| Split | 70% train / 15% validation / 15% test |
-| Format | Instruction-style prompt pairs |
+| Raw records | 7,663 |
+| Final cleaned records | **7,630** |
+| Language fields | English, Standard Bangla, Chittagonian (English retained as auxiliary reference; **not** used as model input) |
+| Pool split | 80% train (6,104) / 10% validation (763) / 10% test (763) — fixed random seed 42 |
+| Examples actually used for fine-tuning | **800 train / 100 validation** (low-resource experimental setting) |
+| Final evaluation | Full held-out **763-example** test set for all three models |
+| Format | Instruction-style Bangla→Chittagonian prompt pairs |
+| Leakage check | No exact-duplicate Bangla or Chittagonian sentences found across train/val/test splits |
 
-All pairs were manually reviewed for quality before being used in training.
+All target-side translations were reviewed and refined with native-speaker input before use, with particular attention to distinguishing natural Chittagonian expression from literal, overly Standard-Bangla-influenced phrasing.
 
 ---
 
 ## ⚙️ Methodology
 
 ```
-Data Collection → Cleaning & Preprocessing → Train/Val/Test Split
-      → Prompt Engineering → QLoRA Fine-Tuning (×3 models)
-      → Inference → Evaluation (BLEU / chrF++ / ROUGE)
+Data Collection → Native-Speaker Validation → Cleaning & Preprocessing → Train/Val/Test Split (80/10/10)
+      → Subsample for Low-Resource Setting (800/100/763) → Prompt Engineering
+      → QLoRA Fine-Tuning (×3 models) → Inference → Evaluation (BLEU / chrF++) → Qualitative Error Analysis
 ```
 
-1. **Dataset Collection** — Gathered Bangla–Chittagonian sentence pairs from multiple community sources.
-2. **Cleaning & Preprocessing** — Deduplication, missing-value handling, text normalization.
-3. **Splitting** — 70/15/15 train/validation/test.
-4. **Prompt Engineering** — Converted pairs into instruction-tuned prompt format.
-5. **QLoRA Fine-Tuning** — 4-bit NF4 quantization with LoRA adapters; base weights frozen, only adapter parameters trained.
-6. **Generation** — Produced Chittagonian translations from held-out Bangla inputs.
-7. **Evaluation** — Scored with BLEU, chrF++, ROUGE-1, ROUGE-2, and ROUGE-L.
+1. **Dataset Collection** — Gathered English–Bangla–Chittagonian sentence triples from publicly available online linguistic resources.
+2. **Native-Speaker Validation** — Refined Chittagonian translations for naturalness and dialectal accuracy.
+3. **Cleaning & Preprocessing** — Removed blank/incomplete records, stripped whitespace, applied NFC Unicode normalization, dropped entries under 3 characters, removed duplicate/identical Bangla–Chittagonian pairs.
+4. **Splitting** — 80/10/10 train/validation/test pools (seed 42); 800/100 examples subsampled from train/validation for the low-resource fine-tuning setting, with the full 763-example test set reserved for evaluation.
+5. **Prompt Engineering** — Formulated translation as an instruction-following task: `Translate the following Bangla sentence into Chittagonian.` The English field is deliberately excluded from prompts.
+6. **QLoRA Fine-Tuning** — 4-bit NF4 quantization with LoRA adapters (r=16, α=32, dropout 0.05) on the q/k/v/o attention projections; base weights frozen, only adapter parameters trained.
+7. **Generation** — Produced Chittagonian translations for all 763 held-out test examples, per model.
+8. **Evaluation** — Scored with BLEU and chrF++, followed by qualitative error analysis across seven error categories.
 
 ### Why QLoRA?
 
-QLoRA enables fine-tuning of billion-parameter models on a single consumer-grade GPU by combining 4-bit quantization with low-rank adapters — freezing the base model and training only a small set of adapter weights. This made it possible to fine-tune three separate 2–3B models end-to-end within Colab's free-tier constraints, without sacrificing much translation quality.
+QLoRA enables fine-tuning of billion-parameter models on a single consumer-grade GPU by combining 4-bit NF4 quantization with low-rank adapters — freezing the base model and training only a small set of adapter weights. This made it possible to fine-tune three separate 2–3B models end-to-end within Colab's free-tier constraints, using just 800 training examples, without sacrificing meaningful translation quality.
 
 ---
 
 ## 🏆 Results
 
-All three models were trained and evaluated on the identical dataset split and QLoRA configuration (rank 16, alpha 32).
+All three models were trained and evaluated on the identical 800/100 train/validation subsets and the full 763-example held-out test set, using the same QLoRA configuration (rank 16, alpha 32, dropout 0.05, targeting q/k/v/o projections).
 
-| Model | BLEU | chrF++ | ROUGE-1 | ROUGE-2 | ROUGE-L |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Qwen2.5-3B-Instruct** 🥇 | **0.4179** | 12.72 | 0.0 | 0.0 | 0.0 |
-| Gemma-2B-IT | 0.2712 | 14.23 | 0.0 | 0.0 | 0.0 |
-| **Llama-3.2-3B-Instruct** 🥇 | 0.3755 | **16.89** | 0.0 | 0.0 | 0.0 |
+| Model | BLEU | chrF++ |
+|---|:---:|:---:|
+| **Qwen2.5-3B-Instruct** 🥇 | **0.4179** | 12.7246 |
+| Gemma-2B-IT | 0.2712 | 14.2280 |
+| **Llama-3.2-3B-Instruct** 🥇 | 0.3755 | **16.8909** |
 
 <div align="center">
-<img src="outputs/comparison/model_comparison.png" alt="Model comparison bar chart across BLEU, chrF++, and ROUGE metrics" width="700"/>
+<img src="outputs/comparison/model_comparison.png" alt="Model comparison bar chart across BLEU and chrF++ metrics" width="700"/>
 </div>
 
 **Key observations:**
-- **Qwen2.5-3B-Instruct** scored highest on **BLEU** (0.4179), indicating stronger exact n-gram overlap with reference translations.
-- **Llama-3.2-3B-Instruct** scored highest on **chrF++** (16.89), a character-level metric that tends to be more forgiving of morphological variation — relevant for a dialect with non-standardized spelling.
-- **ROUGE-1/2/L scored 0.0 across all three models.** This is a known limitation when applying ROUGE — designed for summarization-style word/sequence overlap — to short, single-sentence dialect translations with high lexical divergence from standard Bangla. BLEU and chrF++ are more appropriate metrics for this task, and are weighted accordingly in the analysis.
-- No single model dominates across every metric, underscoring that model choice for low-resource dialect translation depends on which quality dimension (exact-match precision vs. character-level fidelity) matters more for the downstream use case.
+- **Qwen2.5-3B-Instruct** scored highest on **BLEU** (0.4179), indicating the strongest word- and phrase-level n-gram agreement with reference translations.
+- **Llama-3.2-3B-Instruct** scored highest on **chrF++** (16.8909), a character-level metric more forgiving of morphological and orthographic variation — relevant for a dialect without standardized spelling.
+- **No single model wins on both metrics.** Word-level and character-level evaluation surface different strengths: Qwen's outputs match reference wording more exactly, while Llama's outputs are closer at the character/morphology level even where exact word matches diverge.
+- **ROUGE was dropped from the final evaluation.** It is designed for summarization-style overlap and produced uninformative (near-zero) scores on short, single-sentence, high-lexical-divergence dialect translations; BLEU and chrF++ were adopted as the primary metrics instead.
+- A **qualitative error analysis** across seven categories — lexical mismatch, word-order error, morphological variation, spelling variation, untranslated words, Standard Bangla influence, and semantic error — complements the automatic scores and shows that translation quality can't be judged from exact lexical overlap alone.
 
-### Fine-Tuning Efficiency
+### Fine-Tuning Configuration
 
-| Model | LoRA Rank (r) | LoRA Alpha | Target Modules | Trainable Params (%) | Training Time (min) |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Qwen2.5-3B-Instruct | 16 | 32 | 7 | 1.73% | 27.0 |
-| Gemma-2B-IT | 16 | 32 | 4 | N/A | N/A |
-| Llama-3.2-3B-Instruct | 16 | 32 | 4 | N/A | N/A |
+| Parameter | Setting |
+|---|:---:|
+| Fine-tuning method | QLoRA |
+| Quantization | 4-bit NF4 |
+| LoRA rank (r) | 16 |
+| LoRA alpha (α) | 32 |
+| LoRA dropout | 0.05 |
+| Target modules | q_proj, k_proj, v_proj, o_proj |
+| Max sequence length | 256 |
+| Training examples | 800 |
+| Validation examples | 100 |
+| Test examples | 763 (full held-out set) |
+| Epochs | 2 |
+| Batch size | 1 |
+| Gradient accumulation | 8 |
+| Learning rate | 2 × 10⁻⁴ |
+| Warmup ratio | 0.03 |
 
-> Efficiency logging was only fully captured for the Qwen2.5 run; Gemma and Llama were trained under the same QLoRA configuration but efficiency metrics were not recorded for those runs.
+> The same training/validation subsets, prompt structure, hyperparameters, and evaluation procedure were applied identically across all three models to keep the comparison controlled.
 
 ---
 
@@ -143,7 +159,7 @@ Bangla-NLP/
 │   ├── processed/           # Final, model-ready datasets
 │   └── external/            # Any third-party reference data
 ├── outputs/
-│   ├── evaluation/          # Raw evaluation results (BLEU, chrF++, ROUGE)
+│   ├── evaluation/          # Raw evaluation results (BLEU, chrF++)
 │   ├── figures/              # Plots and visualizations
 │   ├── tables/                # Summary result tables
 │   ├── reports/               # Thesis-related reports
@@ -174,16 +190,21 @@ Bangla-NLP/
 
 ![Python](https://img.shields.io/badge/-Python-3776AB?style=flat-square&logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/-PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)
-![Transformers](https://img.shields.io/badge/-Transformers-FFD21E?style=flat-square&logo=huggingface&logoColor=black)
-![PEFT](https://img.shields.io/badge/-PEFT-8A2BE2?style=flat-square)
-![BitsAndBytes](https://img.shields.io/badge/-BitsAndBytes-333333?style=flat-square)
-![TRL](https://img.shields.io/badge/-TRL-FF6F00?style=flat-square)
+![Transformers](https://img.shields.io/badge/-Transformers%204.46.0-FFD21E?style=flat-square&logo=huggingface&logoColor=black)
+![PEFT](https://img.shields.io/badge/-PEFT%200.12.0-8A2BE2?style=flat-square)
+![TRL](https://img.shields.io/badge/-TRL%200.9.6-FF6F00?style=flat-square)
+![Accelerate](https://img.shields.io/badge/-Accelerate%200.34.0-666666?style=flat-square)
+![BitsAndBytes](https://img.shields.io/badge/-BitsAndBytes%200.45.5-333333?style=flat-square)
+![Datasets](https://img.shields.io/badge/-Datasets%202.21.0-FFD21E?style=flat-square)
+![SentencePiece](https://img.shields.io/badge/-SentencePiece%200.2.0-555555?style=flat-square)
 ![Pandas](https://img.shields.io/badge/-Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
 ![NumPy](https://img.shields.io/badge/-NumPy-013243?style=flat-square&logo=numpy&logoColor=white)
 ![Matplotlib](https://img.shields.io/badge/-Matplotlib-11557C?style=flat-square)
 ![Google Colab](https://img.shields.io/badge/-Google%20Colab-F9AB00?style=flat-square&logo=googlecolab&logoColor=white)
 
 </div>
+
+Experiments were run in a GPU-enabled Google Colaboratory environment on a single **NVIDIA T4 GPU**, with fixed software versions used throughout for reproducibility.
 
 ---
 
@@ -221,29 +242,30 @@ python src/training/train_qlora.py --model qwen2.5-3b
 
 **5. Evaluate**
 ```bash
-python src/evaluation/evaluate.py --metrics bleu chrf rouge
+python src/evaluation/evaluate.py --metrics bleu chrf
 ```
 
 ---
 
 ## 🔭 Future Work
 
-- Expand the parallel corpus with more dialectal variation and speakers
-- Incorporate human evaluation alongside automatic metrics
-- Benchmark additional small language models
+- Expand the parallel corpus with more domains, regional variation, and speaker demographics
+- Incorporate human evaluation by native Chittagonian speakers alongside automatic metrics
+- Benchmark additional/larger small language models and adapter configurations
+- Move from sentence-level to context-aware or document-level translation
 - Package the translation model as a web or mobile application
 
 ---
 
 ## 📌 Notes
 
-This is a research project focused on low-resource dialect translation, built under limited computational resources (single Colab T4 GPU). Results may vary depending on hardware, dataset version, and training hyperparameters.
+This is a research project focused on low-resource dialect translation, built under limited computational resources (single Colab T4 GPU) and a deliberately small 800-example fine-tuning subset to study the low-resource regime. Results may vary depending on hardware, dataset version, and training hyperparameters, and should be interpreted as a comparison among the three selected models rather than a universal ranking of all small language models. See the accompanying thesis paper for full limitations and ethical considerations.
 
 ---
 
 ## 🙏 Acknowledgements
 
-Special thanks to my thesis supervisor **Ferdous Ara** for guidance throughout this project, as well as everyone who contributed sentence pairs, feedback, and support along the way.
+Special thanks to my thesis supervisor **Ferdous Ara** for guidance throughout this project, as well as everyone who contributed sentence pairs, native-speaker validation, feedback, and support along the way.
 
 ---
 
@@ -261,5 +283,6 @@ This project is released under the MIT License — see [`LICENSE`](LICENSE) for 
 Final-Year CSE Student, BGC Trust University Bangladesh · Freelance Generative AI Engineer
 
 [![GitHub](https://img.shields.io/badge/GitHub-sihabsafin-181717?style=flat-square&logo=github)](https://github.com/sihabsafin/bangla-chittagonian-translation)
+[![Email](https://img.shields.io/badge/Email-sihabulislamsafin%40bgctub.ac.bd-D14836?style=flat-square&logo=gmail&logoColor=white)](mailto:sihabulislamsafin@bgctub.ac.bd)
 
 </div>
