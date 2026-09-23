@@ -11,8 +11,10 @@
 [![QLoRA](https://img.shields.io/badge/Fine--Tuning-QLoRA-8A2BE2?style=flat-square)](https://arxiv.org/abs/2305.14314)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#license)
 [![Status](https://img.shields.io/badge/Status-Completed-brightgreen?style=flat-square)]()
+[![Paper](https://img.shields.io/badge/Paper-ACM%20TALLIP-0085CA?style=flat-square&logo=acm&logoColor=white)](#)
 
 [Overview](#-overview) •
+[Publication](#-publication) •
 [Models](#-models) •
 [Dataset](#-dataset) •
 [Methodology](#-methodology) •
@@ -37,6 +39,38 @@ The work covers the full pipeline: dataset construction and native-speaker valid
 | 1 | How effectively can parameter-efficient adaptation specialize instruction-tuned Small Language Models for Bangla-to-Chittagonian translation? |
 | 2 | How do Qwen2.5-3B-Instruct, Gemma-2B-IT, and Llama-3.2-3B-Instruct differ under a unified QLoRA framework? |
 | 3 | How do word-level and character-level metrics (BLEU vs. chrF++) reflect model performance for low-resource Chittagonian translation? |
+
+---
+
+## 📄 Publication
+
+This work has been published in **ACM Transactions on Asian and Low-Resource Language Information Processing (TALLIP)**.
+
+| Field | Detail |
+|---|---|
+| **Title** | Bangla → Chittagonian Dialect Translation: Parameter-Efficient Fine-Tuning of Small Language Models with QLoRA |
+| **Authors** | Sihabul Islam Safin, Ferdous Ara |
+| **Journal** | ACM Transactions on Asian and Low-Resource Language Information Processing (TALLIP) |
+| **Publisher** | Association for Computing Machinery (ACM) |
+| **DOI** | [DOI](#) |
+| **ACM Digital Library** | [Official article link](#) |
+| **Database / Platform** | ACM Digital Library |
+| **Indexing** | Scopus, Web of Science (SCIE), DBLP |
+
+> 🔗 **Research trail:** CV → Paper → ACM Digital Library article → GitHub code (this repository)
+
+### 📚 Citation
+
+```bibtex
+@article{safin2026bangla,
+  title   = {Bangla → Chittagonian Dialect Translation: Parameter-Efficient Fine-Tuning of Small Language Models with QLoRA},
+  author  = {Safin, Sihabul Islam and Ara, Ferdous},
+  journal = {ACM Transactions on Asian and Low-Resource Language Information Processing},
+  publisher = {Association for Computing Machinery (ACM)},
+  year    = {2026},
+  doi     = {#}
+}
+```
 
 ---
 
